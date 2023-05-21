@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/">
+        <file>images/bx-wifi-0-Y.png</file>
+        <file>images/bx-wifi-1-Y.png</file>
+        <file>images/bx-wifi-2-Y.png</file>
+        <file>images/bx-wifi-G.png</file>
+        <file>images/bx-wifi-off-Y.png</file>
+        <file>images/bx-wifi-Y.png</file>
+        <file>images/null.png</file>
+        <file>images/select_file.png</file>
+        <file>images/send-done.png</file>
+        <file>images/sending.png</file>
+        <file>images/transverse-line.png</file>
+        <file>images/window-icon.png</file>
+        <file>images/file_info_cancel.png</file>
+        <file>images/file_info_icon.png</file>
+    </qresource>
+</RCC>
