@@ -2,6 +2,7 @@
 #include <QDebug>
 #include <QSettings>
 
+#if 0  //sftp协议
 int tboxUpgradeThread::uploadFile(LIBSSH2_SESSION *session)
 {
     // 打开 SFTP 会话
@@ -89,7 +90,6 @@ int tboxUpgradeThread::uploadFile(LIBSSH2_SESSION *session)
     return (readCount - fileSize); //发完文件readCount == fileSize，否则readCount < fileSize
 }
 
-
 int tboxUpgradeThread::isTboxProVersion(LIBSSH2_SESSION *session)
 {
     LIBSSH2_SFTP *sftp = libssh2_sftp_init(session);
@@ -171,6 +171,149 @@ int tboxUpgradeThread::getTboxID(LIBSSH2_SESSION *session)
     libssh2_sftp_shutdown(sftp);
     return 0;
 }
+#else //scp协议
+int tboxUpgradeThread::uploadFile(LIBSSH2_SESSION *session)
+{
+    QFile file(m_upgradeFileName);
+    if(!file.open(QIODevice::ReadOnly | QIODevice::Unbuffered))
+    {
+        qDebug() << "can not open file:" << m_upgradeFileName;
+        return -1;
+    }
+
+    QFileInfo fileInfo(m_upgradeFileName);
+    // 获取文件大小
+    qint64 fileSize = fileInfo.size();
+    // 获取文件修改时间
+    QDateTime fileModifiedTime = fileInfo.lastModified();
+    qint64 modifiedTime = fileModifiedTime.toSecsSinceEpoch();
+
+    // 执行SCP上传
+    LIBSSH2_CHANNEL *channel = libssh2_scp_send64(session, SSH_REMOTE_FILE, 0777, fileSize, modifiedTime, modifiedTime);
+    if(channel)
+    {
+        //char buffer[1024*1024]; //局部变量过大会导致栈溢出，（现象：一调用函数就崩溃）
+        int   bufferSize = 1024*100;
+        char *buffer = new char[bufferSize];
+        qint64 readCount = 0;
+        // 二进制方式读取
+        qDebug() << "file begin upload(file size:"<< fileSize <<")";
+        while (readCount < fileSize && !file.atEnd())
+        {
+            qint64 bytesRead = file.read(buffer, bufferSize);
+            if (-1 == bytesRead)
+            {
+                qDebug() << "read file faild";
+                break;
+            }
+            readCount += bytesRead;
+            qint64 bytesSend = 0;
+            while(1)
+            {
+                //int bytesSendOnce = libssh2_sftp_write(handle, buffer + bytesSend, bytesRead);
+                int bytesSendOnce = libssh2_channel_write(channel, buffer + bytesSend, bytesRead);
+                if (bytesSendOnce < 0)
+                {
+                    qDebug() << "libssh2_sftp_write file faild";
+                    break;
+                }
+
+                bytesSend += bytesSendOnce; //已发送字节数
+                bytesRead -= bytesSendOnce; //剩余多少未发完
+                //qDebug() << "bytesSend:" << bytesSend << "remain:" << bytesRead;
+
+                if(0 == bytesRead)          //全发完了
+                {
+                    break;
+                }
+            }
+            if(bytesRead) //没发完了就异常退出了
+            {
+                qDebug() << "do not send all data";
+                break;
+            }
+
+            //qDebug() << "already send:"<< readCount <<" Bytes, percent:" << readCount*100/ fileSize <<"%";
+            emit fileUploadPercent(readCount*100/ fileSize);
+
+        }
+
+        if(readCount != fileSize) //文件没发送完全
+        {
+            qDebug() << "upload file faild, readCount:" <<readCount
+                     << "fileSize:" << fileSize;
+        }
+
+        delete[] buffer;
+        file.close();
+        // 结束SCP上传
+        libssh2_channel_send_eof(channel);
+        libssh2_channel_wait_eof(channel);
+        libssh2_channel_wait_closed(channel);
+        libssh2_channel_free(channel);
+        return (readCount - fileSize); //发完文件readCount == fileSize，否则readCount < fileSize
+    }
+    else
+    {
+        qDebug()<< "uploadFile， scp channel open failed";
+    }
+
+   return -1;
+}
+int tboxUpgradeThread::isTboxProVersion(LIBSSH2_SESSION *session)
+{
+    return 0;
+}
+int tboxUpgradeThread::getTboxID(LIBSSH2_SESSION *session)
+{
+    int ret = -1;
+    // 从远程服务器下载文件
+    libssh2_struct_stat sb;
+    LIBSSH2_CHANNEL *channel = libssh2_scp_recv2(session, TBOX_CONFIG_FILE, &sb);
+    if (!channel)
+    {
+        qDebug()<< "libssh2_scp_recv2 Failed to receive remote file\n";
+        return ret;
+    }
+    // 读取远程文件内容并写入本地文件
+    char buffer[512];
+    int bytesRead = libssh2_channel_read(channel, buffer, sizeof(buffer));
+    if(bytesRead > 0)
+    {
+        QString content = QString(QLatin1String(buffer));
+        // 处理读取的内容
+        qDebug() << "read ini content:" << content;
+
+        // 将buffer内容写入临时文件
+        QFile file("temp.ini");
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            file.write(buffer, sizeof(buffer));
+            file.close();
+
+            // 使用QSettings解析临时文件
+            QSettings settings("temp.ini", QSettings::IniFormat);
+
+            // 读取配置项的值
+            m_getTboxId = settings.value("dev/id").toString();
+
+            // 删除临时文件
+            file.remove("temp.ini");
+        }
+
+        qDebug() << "tbox ID:" << m_getTboxId;
+        emit tboxID(m_getTboxId);
+        ret = 0;
+    }
+    else
+    {
+        qDebug() << "getTboxID failed";
+        ret = -1;
+    }
+
+    return ret;
+}
+#endif
 
 void tboxUpgradeThread::run()
 {

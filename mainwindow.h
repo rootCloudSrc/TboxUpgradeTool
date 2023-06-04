@@ -26,6 +26,7 @@ private slots:
     void on_pushButton_upload_clicked();
     void on_tbox_connect_status(int stat);
     void on_tbox_identify(int identify);
+    void on_tboxID(QString ID);
     void on_file_upgrade_status(int stat);
     void on_select_upgrade_file();
     void on_fileFormCancel();
@@ -61,6 +62,7 @@ private:
     tboxUpgradeThread * m_tboxUpgrader; //盒子升级线程（ssh连接，文件上传）
 
     QString m_upgradeFile;
+    QString m_tboxID; //当前连接盒子的iD
 
     /**>主界面设置方法windowSet... */
     void windowSetStart();//程序启动

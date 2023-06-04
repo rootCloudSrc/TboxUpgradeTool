@@ -12,14 +12,14 @@
 #include <include/libssh2_sftp.h>
 
 
-#if 0 //实际tbox
+#if 1 //实际tbox
     #define SERVER_HOST "192.168.225.1"
     #define SERVER_PORT (22)
 
     #define SSH_USER_NAME  "root"
     #define SSH_PASSWD     "quectel123"
 
-    #define SSH_REMOTE_FILE   "/usrdata/ir_ota.tar.gz"  //上传到服务器文件路径
+    #define SSH_REMOTE_FILE   "/usrdata/testir_ota.tar.gz"  //上传到服务器文件路径
     #define TBOX_PRO_DIR_FLAG "/usrdata/"                //存在这个目录的就是pro版本盒子
     #define TBOX_CONFIG_FILE  "/opt/conf.ini"           //盒子配置文件
 
@@ -92,7 +92,7 @@ public:
 signals:
     void tboxConnectStat(int stat);
     void tboxIdentify(int identify);
-    void getTboxID(QString ID);
+    void tboxID(QString ID);
     void fileUpgradStat(int stat);
     void fileUploadPercent(int percent);//数据上传百分比
 

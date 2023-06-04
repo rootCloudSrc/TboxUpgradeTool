@@ -49,6 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
     QObject::connect(m_tboxUpgrader, &tboxUpgradeThread::fileUpgradStat ,  this, &MainWindow::on_file_upgrade_status);
     QObject::connect(m_tboxUpgrader, &tboxUpgradeThread::fileUploadPercent,this, &MainWindow::on_file_upload_percent);
     QObject::connect(m_tboxUpgrader, &tboxUpgradeThread::tboxIdentify,     this, &MainWindow::on_tbox_identify);
+    QObject::connect(m_tboxUpgrader, &tboxUpgradeThread::tboxID,           this, &MainWindow::on_tboxID);
     m_tboxUpgrader->start();
 
 }
@@ -85,6 +86,13 @@ void MainWindow::on_pushButton_upload_clicked()
         QMessageBox::information(this, "Warn", "In Upgrading");
         return;
     }
+    //让用户确认盒子ID，避免升错设备
+    if(QMessageBox::Ok != QMessageBox::information(this, "comfirm ID", m_tboxID, QMessageBox::Ok | QMessageBox::Cancel))
+    {
+        qDebug() << "cancel upgrade operation";
+        return;
+    }
+
     qDebug() << "upgrade start";
     m_tboxUpgrader->UpgradeStart(m_upgradeFile);
 }
@@ -123,6 +131,12 @@ void MainWindow::on_tbox_identify(int identify)
     }
 }
 
+void MainWindow::on_tboxID(QString ID)
+{
+    m_tboxID = ID;
+    qDebug() << "MainWindow get tbox ID:" << ID;
+}
+
 void MainWindow::on_file_upgrade_status(int stat)
 {
     m_fileUpgradeStatus_e = (file_upgrade_stat_e)stat;
@@ -144,6 +158,7 @@ void MainWindow::on_file_upgrade_status(int stat)
         ui->label_sendMsg->setText(m_upgrade);
         m_qlabelStatusMessage->setText(m_statuBartboxUpgradeDone);
         QMessageBox::information(this, "Info", "Update Success");
+        m_tboxID.clear();
         break;
 
     case FILE_UPGRADE_STAT_UPGRADFAILD:
